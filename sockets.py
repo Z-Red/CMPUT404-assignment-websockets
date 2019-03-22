@@ -26,6 +26,32 @@ app = Flask(__name__, static_url_path='/static')
 sockets = Sockets(app)
 app.debug = True
 
+# Source: https://github.com/abramhindle/WebSocketsExamples/blob/master/broadcaster.py
+# Author: Abram Hindle https://github.com/abramhindle
+# License: Apache License 2.0
+# Date Taken: Wednesday, Marrch 20, 2019
+################################################################################
+gevents = list()
+clients = list()
+
+def send_all(msg):
+    for client in clients:
+        client.put( msg )
+
+def send_all_json(obj):
+    send_all( json.dumps(obj) )
+
+class Client:
+    def __init__(self):
+        self.queue = queue.Queue()
+
+    def put(self, v):
+        self.queue.put_nowait(v)
+
+    def get(self):
+        return self.queue.get()
+################################################################################
+
 class World:
     def __init__(self):
         self.clear()
@@ -61,6 +87,7 @@ class World:
 
 myWorld = World()
 
+# TODO:
 def set_listener( entity, data ):
     ''' do something with the update ! '''
 
@@ -72,23 +99,71 @@ def hello():
     return app.send_static_file('index.html')
 
 # TODO:
+# Source: https://github.com/abramhindle/WebSocketsExamples/blob/master/broadcaster.py
+# Author: Abram Hindle https://github.com/abramhindle
+# License: Apache License 2.0
+# Date Taken: Wednesday, Marrch 20, 2019
+################################################################################
 def read_ws(ws,client):
     '''A greenlet function that reads from the websocket and updates the world'''
-    # XXX: TODO IMPLEMENT ME
 
+    try:
+        while True:
 
-    # TODO: Read from websocket
+            # Read from the websocket.
+            msg = ws.receive()
+            print("WS RECV: %s" % msg)
+            if (msg is not None):
+                packet = json.loads(msg)
 
-    # TODO: Update the world
+                # We need to 'broadcast' the change to other clients!
+                send_all_json(packet)
+
+                # Update the world.
+                for k, v in packet.items():
+                    myWorld.set(k, v)
+            else:
+                break
+    except:
+        '''Done'''
+
     return None
 
-# TODO:
 @sockets.route('/subscribe')
 def subscribe_socket(ws):
     '''Fufill the websocket URL of /subscribe, every update notify the
        websocket and read updates from the websocket '''
-    # XXX: TODO IMPLEMENT ME
+
+    client = Client()
+    clients.append(client)
+
+    # gevent is a 'coroutine' networking library that we will use to to manage
+    # socket events on a per-client basis. gevent utilizes event loops and
+    # context switching to give the feel of asynchronous event handling, when
+    # really it is pseudo-asynchronous through good mangement of events occuring
+    # in the queue. Think of it like non-blocking polling of each websocket!
+
+    # To add the socket to the event loop, we pass in the function that will
+    # read the socket for a particular client, as well as the information about
+    # the socket that said client will be using.
+    print("New  Client Socket info: %s" % ws)
+    g = gevent.spawn( read_ws, ws, client) # TODO: Comments
+    try:
+        # While the socket is in use (and no errors), send data to the client.
+        while True:
+            # block here
+            msg = client.get()
+            ws.send(msg)
+    except Exception as e:
+        print("Web Socket Error: %s" % e)
+    finally:
+        # Remove the particular client from the client list
+        clients.remove(client)
+        # Kill monitoring of this particular event in the event loop.
+        gevent.kill(g)
+
     return None
+################################################################################
 
 
 # I give this to you, this is how you get the raw body/data portion of a post in flask
