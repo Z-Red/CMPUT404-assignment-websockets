@@ -263,6 +263,36 @@ function wsSetup() {
     socket = new WebSocket(url);
     socket.onopen = function() {
         //XXX: TODO What are you going to do here?
+
+        // Get current state of the webservice!
+
+        // Source (GitHub): https://github.com/abramhindle/CMPUT404-assignment-ajax/blob/master/static/index.html
+        // Author: Abram Hindle https://github.com/abramhindle
+        // License: Apache 2 License
+        // Date Taken: Thursday, March 21, 2019
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState==4) {
+                try {
+                    if (xhr.status==200) {
+                        world = JSON.parse(xhr.responseText)
+                        drawNextFrame();
+                    }
+                }
+                catch(e) {
+                    alert('Error: ' + e.name);
+                }
+            }
+        };
+
+        // We are just GETting so we don't need to actually send anything
+        console.log(window.location.href + "world");
+        console.log(window.location.href + "world");
+        console.log(window.location.href + "world");
+        xhr.open("POST", window.location.href + "world", true);
+        xhr.setRequestHeader("Accept", "application/json");
+        xhr.send(null);
+
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
@@ -280,7 +310,7 @@ function wsSetup() {
               world[k] = dict[k];
               drawNextFrame();
             }
-            
+
         } catch (e) {
             alert("socket on message: " + e);
         }
